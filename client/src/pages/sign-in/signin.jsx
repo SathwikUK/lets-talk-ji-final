@@ -28,7 +28,7 @@ const Signin = () => {
     const { username, name } = data;
 
     try {
-      const response = await fetch("http://localhost:5001/auth/createUser", {
+      const response = await fetch("https://lets-talk-ji-final.vercel.app/auth/createUser", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
