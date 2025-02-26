@@ -1,16 +1,18 @@
 import { useCall } from "@stream-io/video-react-sdk";
-import React from "react";
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 export const PermissionRequestsPanel = () => {
-  // this hook will take the call instance from the <StreamCall /> context.
+  // This hook takes the call instance from the <StreamCall /> context.
   const call = useCall();
   const [permissionRequests, setPermissionRequests] = useState([]);
 
   useEffect(() => {
-    return call?.on("call.permission_request", (event) => {
+    // Listen for incoming permission requests.
+    const cleanup = call?.on("call.permission_request", (event) => {
       setPermissionRequests((reqs) => [...reqs, event]);
     });
+    
+    return cleanup;
   }, [call]);
 
   const handlePermissionRequest = useCallback(
@@ -24,7 +26,7 @@ export const PermissionRequestsPanel = () => {
         }
         setPermissionRequests((reqs) => reqs.filter((req) => req !== request));
       } catch (err) {
-        console.error(`Error granting or revoking permissions`, err);
+        console.error("Error granting or revoking permissions", err);
       }
     },
     [call]

@@ -1,5 +1,6 @@
-import { useCallStateHooks } from "@stream-io/video-react-sdk";
 import React from "react";
+import { useCallStateHooks } from "@stream-io/video-react-sdk";
+import { FaMicrophone, FaMicrophoneSlash } from "react-icons/fa";
 
 export const MicButton = () => {
   const { useMicrophoneState } = useCallStateHooks();
@@ -15,7 +16,7 @@ export const MicButton = () => {
 
   return (
     <button onClick={handleMicToggle}>
-      {isMute ? "Unmute" : "Mute"}
+      {isMute ? <FaMicrophoneSlash size={24} /> : <FaMicrophone size={24} />}
     </button>
   );
 };

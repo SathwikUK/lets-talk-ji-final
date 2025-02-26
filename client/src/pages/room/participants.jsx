@@ -14,7 +14,6 @@ export const Participants = () => {
   const participants = useParticipants();
   return (
     <div className="participants-panel">
-      {/* <h4>Participants</h4> */}
       <div className="participants">
         <ParticipantsAudio participants={participants} />
         {participants.map((p) => (

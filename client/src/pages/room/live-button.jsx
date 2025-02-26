@@ -1,5 +1,5 @@
 import { useCall, useCallStateHooks } from "@stream-io/video-react-sdk";
-import React from "react";
+import React, { useState, useEffect } from "react";
 
 export const LiveButton = () => {
   // Get the call object from the <StreamCall /> context
@@ -7,13 +7,43 @@ export const LiveButton = () => {
 
   // Get the state indicating whether the call is live or not
   const { useIsCallLive } = useCallStateHooks();
-  const isLive = useIsCallLive();
+  const isCallLive = useIsCallLive();
+  
+  // Local state to track live status
+  const [isLive, setIsLive] = useState(isCallLive);
+  
+  // Update local state when the call's live status changes
+  useEffect(() => {
+    setIsLive(isCallLive);
+  }, [isCallLive]);
+  
+  // Add effect to listen for live state changes
+  useEffect(() => {
+    // Handler for live state changes
+    const handleLiveStateChange = (event) => {
+      setIsLive(event.is_live);
+    };
+    
+    // Subscribe to events
+    const unsubscribe = call?.on("call.live_started", handleLiveStateChange);
+    const unsubscribeStop = call?.on("call.live_stopped", handleLiveStateChange);
+    
+    return () => {
+      // Clean up event listeners
+      unsubscribe?.();
+      unsubscribeStop?.();
+    };
+  }, [call]);
 
   const handleLiveToggle = async () => {
-    if (isLive) {
-      await call?.stopLive();
-    } else {
-      await call?.goLive();
+    try {
+      if (isLive) {
+        await call?.stopLive();
+      } else {
+        await call?.goLive();
+      }
+    } catch (error) {
+      console.error("Error toggling live state:", error);
     }
   };
 
