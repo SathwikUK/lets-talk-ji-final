@@ -5,7 +5,7 @@ import logo from './assets/mike.png'; // Replace with your logo file path
 const Logo = () => {
   return (
     <div className="logo">
-      <Link to="/sign-in">
+      <Link to="/">
         <img src={logo} alt="Logo" />
       </Link>
     </div>

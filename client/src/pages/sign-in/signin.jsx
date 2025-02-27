@@ -1,4 +1,3 @@
-// src/pages/sign-in/sign-in.jsx
 import React, { useState } from 'react';
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -67,7 +66,8 @@ const Signin = () => {
       cookies.set("username", responseData.username, { expires });
       cookies.set("name", responseData.name, { expires });
 
-      navigate("/");
+      // After successful sign in, navigate to Main page.
+      navigate("/main");
     } catch (error) {
       console.error("Error:", error);
       alert("An error occurred while signing in.");

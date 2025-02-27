@@ -1,18 +1,31 @@
-// src/app.jsx
-import React from 'react'; // Import React
+import React, { useEffect } from 'react';
 import './App.css';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Main from './pages/main/main';
 import { Room } from './pages/room/room';
-import Signin from './pages/sign-in/signin'; // Notice the default import here
+import Signin from './pages/sign-in/signin';
 import { StreamCall } from '@stream-io/video-react-sdk';
 import { useUser } from './user-context';
 import Cookies from "universal-cookie";
-import Logo from './Logo'; // Import the Logo component
+import Logo from './Logo';
+import { FiLogOut } from 'react-icons/fi';
 
 const App = () => {
-  const { call, setUser, setCall } = useUser();
+  const { user, call, setUser, setCall } = useUser();
   const cookies = new Cookies();
+
+  // Check for authentication on component mount
+  useEffect(() => {
+    const token = cookies.get("token");
+    const username = cookies.get("username");
+    const name = cookies.get("name");
+    
+    // If no token, ensure user is set to null
+    if (!token || !username || !name) {
+      setUser(null);
+      setCall(undefined);
+    }
+  }, [setUser, setCall]);
 
   const handleLogout = () => {
     cookies.remove("token");
@@ -20,45 +33,45 @@ const App = () => {
     cookies.remove("username");
     setUser(null);
     setCall(undefined);
-    window.location.pathname = "/sign-in";
   };
 
   return (
     <Router>
       <div className="app-container">
         <header>
-          <Logo /> {/* Add Logo component here */}
+          <Logo />
         </header>
         <main>
           <Routes>
-            <Route path='/' element={<Main />} />
-            <Route path='/sign-in' element={<Signin />} />
+            <Route path='/' element={user ? <Navigate to="/main" /> : <Signin />} />
+            <Route path='/main' element={user ? <Main /> : <Navigate to="/" />} />
             <Route
               path="/room/:roomId"
               element={
-                call ? (
+                user && call ? (
                   <StreamCall call={call}>
                     <Room />
                   </StreamCall>
                 ) : (
-                  <Navigate to="/" />
+                  <Navigate to={user ? "/main" : "/"} />
                 )
               }
             />
+            {/* Add a catch-all route */}
+            <Route path="*" element={<Navigate to={user ? "/main" : "/"} />} />
           </Routes>
         </main>
-        <footer>
-          <button
-            className="logout-button"
-            onClick={handleLogout}
-          >
-            Logout
-          </button>
-        </footer>
+        
+        {user && (
+          <footer>
+            <button className="logout-button" onClick={handleLogout}>
+              <FiLogOut size={32} />
+            </button>
+          </footer>
+        )}
       </div>
     </Router>
   );
 };
 
-// Export the App component as default
 export default App;

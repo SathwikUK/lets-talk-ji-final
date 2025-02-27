@@ -5,12 +5,14 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import CryptoJS from 'crypto-js';
 import { useUser } from '../../user-context';
 import talk from '../../voice1.png';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Main = () => {
   const { client, user, setCall, isLoading } = useUser();
   const [newRoom, setNewRoom] = useState({ name: "", description: "" });
   const [rooms, setRooms] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [creatingRoom, setCreatingRoom] = useState(false);
   const [joiningRoomId, setJoiningRoomId] = useState(null); // Track which room is being joined
   const navigate = useNavigate();
 
@@ -25,9 +27,17 @@ const Main = () => {
 
   const createRoom = async () => {
     const { name, description } = newRoom;
-    if (!client || !user || !name || !description) return;
+    if (!client || !user) {
+      toast.error("User not authenticated");
+      return;
+    }
     
-    setLoading(true);
+    if (!name || !description) {
+      toast.error("Room name and description are required");
+      return;
+    }
+    
+    setCreatingRoom(true);
     const roomID = hashRoomName(name);
     const call = client.call("audio_room", roomID);
 
@@ -43,57 +53,65 @@ const Main = () => {
       navigate(`/room/${roomID}`);
     } catch (error) {
       console.error("Error while creating room", error);
-      alert("Error while creating room. Please try again.");
+      toast.error("Error while creating room. Please try again.");
     } finally {
-      setLoading(false);
+      setCreatingRoom(false);
     }
   };
 
   const fetchListOfCalls = async () => {
-    const callsQueryResponse = await client?.queryCalls({
-      filter_conditions: { ongoing: true },
-      limit: 25,
-      watch: true,
-    });
+    try {
+      const callsQueryResponse = await client?.queryCalls({
+        filter_conditions: { ongoing: true },
+        limit: 25,
+        watch: true,
+      });
 
-    if (!callsQueryResponse) {
-      console.log("Error fetching calls");
-      return;
-    }
+      if (!callsQueryResponse) {
+        console.log("Error fetching calls");
+        return;
+      }
 
-    const getCallInfo = async (call) => {
-      const callInfo = await call.get();
-      const customData = callInfo.call.custom || {};
-      const { title, description } = customData;
-      const participantsLength = callInfo.members.length ?? 0;
-      const createdBy = callInfo.call.created_by?.name ?? "";
-      const id = callInfo.call.id ?? "";
+      const getCallInfo = async (call) => {
+        const callInfo = await call.get();
+        const customData = callInfo.call.custom || {};
+        const { title, description } = customData;
+        const participantsLength = callInfo.members.length ?? 0;
+        const createdBy = callInfo.call.created_by?.name ?? "";
+        const id = callInfo.call.id ?? "";
 
-      return {
-        id,
-        title: title ?? "",
-        description: description ?? "",
-        participantsLength,
-        createdBy,
+        return {
+          id,
+          title: title ?? "",
+          description: description ?? "",
+          participantsLength,
+          createdBy,
+        };
       };
-    };
 
-    const roomPromises = callsQueryResponse.calls.map((call) => getCallInfo(call));
-    const rooms = await Promise.all(roomPromises);
-    setRooms(rooms);
+      const roomPromises = callsQueryResponse.calls.map((call) => getCallInfo(call));
+      const rooms = await Promise.all(roomPromises);
+      setRooms(rooms);
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+      toast.error("Failed to load available rooms");
+    }
   };
 
   const joinRoom = async (roomId) => {
-    setJoiningRoomId(roomId); // Set the joining room ID to show loader on that specific card
+    // Prevent joining if already in progress
+    if (joiningRoomId) return;
+    
+    setJoiningRoomId(roomId);
     const call = client?.call("audio_room", roomId);
     try {
       await call?.join();
       setCall(call);
       navigate("/room/" + roomId);
     } catch (err) {
-      alert("Error while joining the call. Please wait for the room to be live.");
+      toast.error("Error while joining the room. Please wait for the room to be live.");
     } finally {
-      setJoiningRoomId(null); // Reset joining room ID
+      setJoiningRoomId(null);
     }
   };
 
@@ -103,25 +121,27 @@ const Main = () => {
   return (
     <StreamVideo client={client}>
       <div className="home">
+        <ToastContainer position="top-right" autoClose={5000} />
+        
         <h1>Welcome, {user?.name}</h1>
         <div className="form">
           <h2>Create Your Own Room</h2>
           <input
             placeholder="Room Name..."
             onChange={(e) => setNewRoom((prev) => ({ ...prev, name: e.target.value }))}
-            disabled={loading}
+            disabled={creatingRoom}
           />
           <input
             placeholder="Room Description..."
             onChange={(e) => setNewRoom((prev) => ({ ...prev, description: e.target.value }))}
-            disabled={loading}
+            disabled={creatingRoom}
           />
           <button
             onClick={createRoom}
             style={{ backgroundColor: "rgb(125, 7, 236)" }}
-            disabled={loading}
+            disabled={creatingRoom}
           >
-            {loading ? "Creating Room..." : "Create Room"}
+            {creatingRoom ? "Creating Room..." : "Create Room"}
           </button>
         </div>
         <h2>{rooms.length > 0 ? "Available Rooms" : "No rooms available"}</h2>
@@ -131,40 +151,17 @@ const Main = () => {
               <div 
                 className="card" 
                 key={room.id} 
-                onClick={() => joinRoom(room.id)}
-                style={{ position: 'relative' }}
+                onClick={() => !joiningRoomId && joinRoom(room.id)}
+                style={{ 
+                  position: 'relative',
+                  cursor: joiningRoomId ? 'not-allowed' : 'pointer' 
+                }}
               >
                 <h4>{room.title}</h4>
                 <p>{room.description}</p>
                 <p>{room.participantsLength} Participants</p>
                 <p>Created By: {room.createdBy}</p>
                 <div className="shine"></div>
-                
-                {/* Room-specific loader */}
-                {joiningRoomId === room.id && (
-                  <div className="room-loader" style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    borderRadius: 'inherit',
-                    zIndex: 10
-                  }}>
-                    <div className="spinner" style={{
-                      width: '40px',
-                      height: '40px',
-                      border: '4px solid rgba(255, 255, 255, 0.3)',
-                      borderRadius: '50%',
-                      borderTop: '4px solid white',
-                      animation: 'spin 1s linear infinite'
-                    }}></div>
-                  </div>
-                )}
               </div>
             ))
           ) : (
@@ -174,21 +171,13 @@ const Main = () => {
         <div className="right-side-image">
           <img src={talk} alt="Description" />
         </div>
-
-        {/* Advanced Spinner Overlay for creating room */}
-        {loading && (
+        
+        {/* Spinner Overlay using the same spinner as in Signin */}
+        {(creatingRoom || joiningRoomId) && (
           <div className="advanced-loader">
             <div className="spinner"></div>
           </div>
         )}
-
-        {/* Add keyframe animation for spinner */}
-        <style jsx>{`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
     </StreamVideo>
   );
