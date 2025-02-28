@@ -1,3 +1,4 @@
+// src/pages/room/Room.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import Cookies from "universal-cookie";
@@ -8,6 +9,7 @@ import {
   useRequestPermission,
   useCall,
 } from "@stream-io/video-react-sdk";
+import { toast } from "react-toastify";
 import { Controls } from "./controls";
 import { Participants } from "./participants";
 import { PermissionRequestsPanel } from "./permission-request";
@@ -17,24 +19,21 @@ export const Room = () => {
   const cookies = new Cookies();
   const navigate = useNavigate();
   
-  const { useCallCustomData, useParticipants, useCallCreatedBy } =
-    useCallStateHooks();
-  // Read custom data (title, description) from the call
+  const { useCallCustomData, useParticipants } = useCallStateHooks();
+  // Retrieve custom data (which now includes the owner)
   const custom = useCallCustomData();
-  // List of participants in the call
   const participants = useParticipants();
-  // The user who created the call
-  const createdBy = useCallCreatedBy();
-  // The actual call object
   const call = useCall();
-  // Hook for requesting a specific permission (SEND_AUDIO in this example)
+  
   const { hasPermission, requestPermission } = useRequestPermission(
     OwnCapability.SEND_AUDIO
   );
   
-  /**
-   * Leave the call and redirect to main page.
-   */
+  // Determine if the current user is the room owner using custom.owner
+  const isRoomOwner = user?.username === custom?.owner;
+  // For owners, effectiveHasPermission is always true; for others, use the permission state
+  const effectiveHasPermission = isRoomOwner ? true : hasPermission;
+  
   const handleLeaveRoom = async () => {
     if (!call) {
       console.error("Call object is not defined");
@@ -43,20 +42,16 @@ export const Room = () => {
     }
     
     try {
-      await call.leave(); // Leave the call/room
-      setCall(undefined); // Clear the call from context
-      navigate("/main"); // Navigate to main using React Router
+      await call.leave();
+      setCall(undefined);
+      navigate("/main");
     } catch (error) {
       console.error("Error leaving room:", error);
-      // Force navigation even if there's an error
       setCall(undefined);
       navigate("/main");
     }
   };
   
-  /**
-   * Handle logout and navigate to sign-in page
-   */
   const handleLogout = async () => {
     if (call) {
       try {
@@ -66,22 +61,16 @@ export const Room = () => {
       }
     }
     
-    // Remove cookies
     cookies.remove("token");
     cookies.remove("name");
     cookies.remove("username");
     
-    // Update state
     setUser(null);
     setCall(undefined);
     
-    // Navigate to sign-in
     navigate("/");
   };
   
-  /**
-   * Close the room (for room owner only) and navigate to main page
-   */
   const handleCloseRoom = async () => {
     if (!call) {
       console.error("Call object is not defined");
@@ -90,67 +79,59 @@ export const Room = () => {
     }
     
     try {
-      await call.leave(); // Terminate the call/room
-      setCall(undefined); // Clear the call from context
-      navigate("/main"); // Navigate to main using React Router
+      await call.leave();
+      setCall(undefined);
+      navigate("/main");
     } catch (error) {
       console.error("Error closing room:", error);
-      // Force navigation even if there's an error
       setCall(undefined);
       navigate("/main");
     }
   };
   
-  /**
-   * Compare the local user's "username" to the call creator's "id"
-   * to decide if the local user is the room owner.
-   */
-  const isRoomOwner = user?.username === createdBy?.id;
-  
+  // For non-owners, handle Request to Speak by sending a permission request and showing a toast
+  const handleRequestSpeak = async () => {
+    try {
+      await requestPermission();
+      toast.success("Request sent");
+    } catch (error) {
+      console.error("Error sending request", error);
+      toast.error("Failed to send request");
+    }
+  };
+
   return (
     <div className="room">
       <h2 className="title">{custom?.title ?? "<Title>"}</h2>
       <h3 className="description">{custom?.description ?? "<Description>"}</h3>
       <p className="participant-count">{participants.length} participants</p>
       <Participants />
-      {/* Room Owner UI */}
       {isRoomOwner ? (
         <>
+          {/* Room owner: show incoming permission requests and controls */}
           <PermissionRequestsPanel />
-          {/* No permission request button for room owner */}
-          <Controls />
-          <div className="room-actions">
-            <button className="close-room-btn" onClick={handleCloseRoom}>
-              Close Room
-            </button>
-            
+          <div className="owner-controls">
+            <Controls />
+            <div className="room-actions">
+              <button className="close-room-btn" onClick={handleCloseRoom}>
+                Close Room
+              </button>
+            </div>
           </div>
         </>
       ) : (
-        /* Non-Owner UI */
         <>
-          {/* Only show permission request button if user doesn't have permission */}
-          {!hasPermission && (
-            <button className="request-permission-btn" onClick={requestPermission}>
+          {/* Non-owners: if permission is not granted, show "Request to Speak"; otherwise, show controls */}
+          {!effectiveHasPermission && (
+            <button className="request-permission-btn" onClick={handleRequestSpeak}>
               &#9995; Request to Speak
             </button>
           )}
-         
-          {/* Only show controls if user has permission */}
-          {hasPermission && <Controls />}
-         
-          {/* Action buttons for non-owners */}
-          <div className="room-actions" style={{
-            position: "absolute", 
-            bottom: "1rem", 
-            right: "1rem",
-            display: "flex",
-            gap: "10px"
-          }}>
+          {effectiveHasPermission && <Controls />}
+          <div className="room-actions">
             <button className="leave-room-btn" onClick={handleLeaveRoom}>
               Leave Room
             </button>
-            
           </div>
         </>
       )}

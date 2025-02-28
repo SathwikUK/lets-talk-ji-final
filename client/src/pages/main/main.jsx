@@ -13,7 +13,7 @@ const Main = () => {
   const [newRoom, setNewRoom] = useState({ name: "", description: "" });
   const [rooms, setRooms] = useState([]);
   const [creatingRoom, setCreatingRoom] = useState(false);
-  const [joiningRoomId, setJoiningRoomId] = useState(null); // Track which room is being joined
+  const [joiningRoomId, setJoiningRoomId] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -46,7 +46,8 @@ const Main = () => {
         create: true,
         data: {
           members: [{ user_id: user.username }],
-          custom: { title: name, description },
+          // Store the room owner in custom data
+          custom: { title: name, description, owner: user.username },
         },
       });
       setCall(call);
@@ -75,9 +76,10 @@ const Main = () => {
       const getCallInfo = async (call) => {
         const callInfo = await call.get();
         const customData = callInfo.call.custom || {};
-        const { title, description } = customData;
+        const { title, description, owner } = customData;
         const participantsLength = callInfo.members.length ?? 0;
-        const createdBy = callInfo.call.created_by?.name ?? "";
+        // Use the custom owner if available
+        const createdBy = owner || callInfo.call.created_by?.name || "";
         const id = callInfo.call.id ?? "";
 
         return {
@@ -99,7 +101,6 @@ const Main = () => {
   };
 
   const joinRoom = async (roomId) => {
-    // Prevent joining if already in progress
     if (joiningRoomId) return;
     
     setJoiningRoomId(roomId);
@@ -122,8 +123,7 @@ const Main = () => {
     <StreamVideo client={client}>
       <div className="home">
         <ToastContainer position="top-right" autoClose={5000} />
-        
-        <h1>Welcome, {user?.name}</h1>
+        <h1>Welcome, {user?.username}</h1>
         <div className="form">
           <h2>Create Your Own Room</h2>
           <input
@@ -171,8 +171,6 @@ const Main = () => {
         <div className="right-side-image">
           <img src={talk} alt="Description" />
         </div>
-        
-        {/* Spinner Overlay using the same spinner as in Signin */}
         {(creatingRoom || joiningRoomId) && (
           <div className="advanced-loader">
             <div className="spinner"></div>
