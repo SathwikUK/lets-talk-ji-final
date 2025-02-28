@@ -16,8 +16,15 @@ const Main = () => {
   const [joiningRoomId, setJoiningRoomId] = useState(null);
   const navigate = useNavigate();
 
+  // Initial fetch and polling every 3 seconds for real-time updates
   useEffect(() => {
-    if (client) fetchListOfCalls();
+    if (client) {
+      fetchListOfCalls();
+      const interval = setInterval(() => {
+        fetchListOfCalls();
+      }, 3000);
+      return () => clearInterval(interval);
+    }
   }, [client]);
 
   const hashRoomName = (roomName) => {

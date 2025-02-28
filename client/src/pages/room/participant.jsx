@@ -44,7 +44,7 @@ const speakingSVG = (
 );
 
 export const Participant = ({ participant }) => {
-  // `isSpeaking` information is available on the participant object,
+  // isSpeaking information is available on the participant object,
   // and it is automatically detected by our system and updated by our SDK.
   const { isSpeaking } = participant;
 

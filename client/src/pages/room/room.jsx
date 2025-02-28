@@ -20,7 +20,7 @@ export const Room = () => {
   const navigate = useNavigate();
   
   const { useCallCustomData, useParticipants } = useCallStateHooks();
-  // Retrieve custom data (which now includes the owner)
+  // Retrieve custom data (which may or may not include the new owner field)
   const custom = useCallCustomData();
   const participants = useParticipants();
   const call = useCall();
@@ -29,8 +29,9 @@ export const Room = () => {
     OwnCapability.SEND_AUDIO
   );
   
-  // Determine if the current user is the room owner using custom.owner
-  const isRoomOwner = user?.username === custom?.owner;
+  // Use fallback: if custom.owner is missing, use call.created_by.name
+  const roomOwner = custom?.owner || call?.created_by?.name;
+  const isRoomOwner = user?.username === roomOwner;
   // For owners, effectiveHasPermission is always true; for others, use the permission state
   const effectiveHasPermission = isRoomOwner ? true : hasPermission;
   
@@ -89,7 +90,7 @@ export const Room = () => {
     }
   };
   
-  // For non-owners, handle Request to Speak by sending a permission request and showing a toast
+  // For non-owners, send a permission request and show a toast notification
   const handleRequestSpeak = async () => {
     try {
       await requestPermission();
@@ -121,7 +122,7 @@ export const Room = () => {
         </>
       ) : (
         <>
-          {/* Non-owners: if permission is not granted, show "Request to Speak"; otherwise, show controls */}
+          {/* Non-owners: if permission not granted, show "Request to Speak"; otherwise, show controls */}
           {!effectiveHasPermission && (
             <button className="request-permission-btn" onClick={handleRequestSpeak}>
               &#9995; Request to Speak
